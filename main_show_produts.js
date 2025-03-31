@@ -1,4 +1,4 @@
-// main.js - 모든 카테고리 상품을 한 페이지에 로드
+// main.js - 모든 카테고리 상품을 한 페이지에 로드 (최종 수정)
 
 // 표시할 카테고리 목록 정의
 const CATEGORIES = {
@@ -31,16 +31,16 @@ const CATEGORIES = {
  * @returns {string} 상품 HTML 문자열
  */
 function createProductHTML(product) {
-    console.log("createProductHTML - product:", product); // 디버깅 로그 (필요 없으면 제거)
+    console.log("createProductHTML - product:", product); // 디버깅 로그
     // 필요한 속성 확인 강화
     if (!product || typeof product !== 'object' || !product.productUrl || !product.productImage || !product.productName) {
         console.error("createProductHTML - product 객체 또는 필수 속성이 유효하지 않습니다:", product);
-        return '<div class="product" style="color: red; border: 1px dashed red; padding: 5px;">상품 정보 형식 오류</div>'; // 눈에 띄는 오류 표시
+        return '<div class="product" style="color: red; border: 1px dashed red; padding: 5px;">상품 정보 형식 오류</div>';
     }
     // 가격 포맷팅 및 가격 정보 없음 처리
     const priceString = product.productPrice ? product.productPrice.toLocaleString() + '원' : '가격 정보 없음';
 
-    // target="_blank" 제거 (요청 사항 8)
+    // target="_blank" 제거
     return `
     <div class="product">
         <a href="${product.productUrl}">
@@ -96,34 +96,43 @@ async function loadAllCategoryProducts() {
             const response = await fetch(fetchUrl);
             console.log(` - [${categoryName}] 응답 상태:`, response.status, response.ok);
 
+            // *** 수정된 오류 처리 및 본문 읽기 (body stream already read 오류 해결) ***
             if (!response.ok) {
+                // 실패 시, 응답 본문을 텍스트로 딱 한 번만 읽음
+                const errorText = await response.text();
                 let errorMsg = `API 호출 실패 (${response.status})`;
                 try {
-                    const errorData = await response.json();
+                    // 읽은 텍스트를 JSON으로 파싱 시도
+                    const errorData = JSON.parse(errorText);
+                    // 파싱 성공 시, error 메시지 추출 또는 전체 데이터 문자열화
                     errorMsg = errorData.error || JSON.stringify(errorData);
-                } catch (e) { errorMsg = await response.text(); }
+                } catch (e) {
+                    // JSON 파싱 실패 시, 그냥 읽은 텍스트 사용
+                    errorMsg = errorText;
+                }
                 console.error(` - [${categoryName}] 오류: ${errorMsg}`);
                 categorySectionHtml += `<p>상품 정보를 가져오는 데 실패했습니다 (${response.status}).</p>`;
             } else {
+                // 성공 시, 응답 본문을 JSON으로 딱 한 번만 읽음
                 const products = await response.json();
                 console.log(` - [${categoryName}] 상품 데이터:`, products);
 
                 if (products && Array.isArray(products)) {
                     if (products.length > 0) {
-                        categorySectionHtml += `<ul style="list-style-type: none; padding-left: 0;">`; // 목록 시작 (스타일 추가)
+                        categorySectionHtml += `<ul style="list-style-type: none; padding-left: 0;">`;
                         for (const product of products) {
-                            categorySectionHtml += `<li style="margin-bottom: 15px;">${createProductHTML(product)}</li>`; // 각 상품을 li로 감쌈
+                            categorySectionHtml += `<li style="margin-bottom: 15px;">${createProductHTML(product)}</li>`;
                         }
-                        categorySectionHtml += `</ul>`; // 목록 끝
+                        categorySectionHtml += `</ul>`;
                     } else {
-                        categorySectionHtml += `<p>추천 상품이 없습니다.</p>`; // 상품 없음 메시지
+                        categorySectionHtml += `<p>추천 상품이 없습니다.</p>`;
                     }
                 } else {
                     console.error(` - [${categoryName}] 상품 데이터 형식 오류:`, products);
                     categorySectionHtml += "<p>상품 목록 형식 오류.</p>";
                 }
             }
-        } catch (error) {
+        } catch (error) { // 네트워크 오류 등 fetch 자체 실패 시
             console.error(` - [${categoryName}] 네트워크 또는 기타 오류:`, error);
             categorySectionHtml += `<p>상품 정보를 가져오는 중 오류 발생: ${error.message}</p>`;
         }
@@ -138,7 +147,7 @@ async function loadAllCategoryProducts() {
         loadingMessage.remove();
     }
 
-    // 'Top' 버튼 코드 추가 (요청 사항 3)
+    // 'Top' 버튼 코드 추가
     const scrollTopButtonHtml = `
        <style>
        #scrollTopBtn { display: none; position: fixed; bottom: 20px; right: 30px; z-index: 99; border: none; outline: none; background-color: rgba(0, 0, 0, 0.5); color: white; cursor: pointer; padding: 10px 15px; border-radius: 50%; font-size: 18px; line-height: 1; }
@@ -151,11 +160,13 @@ async function loadAllCategoryProducts() {
        if (typeof window.scrollTopScriptLoaded === 'undefined') {
            window.scrollTopScriptLoaded = true;
            // 스크립트 내용을 여기에 넣거나, 외부 파일로 분리 권장
-           // 위의 script 내용은 이미 전역 범위에 정의되므로 여기서는 함수 호출만
        }
        </script>
        `;
-    mainContainer.insertAdjacentHTML('beforeend', scrollTopButtonHtml);
+    // Top 버튼은 전체 컨테이너(#app)의 끝에 추가
+    if (mainContainer) {
+        mainContainer.insertAdjacentHTML('beforeend', scrollTopButtonHtml);
+    }
 }
 
 // 페이지 로드 완료 시 loadAllCategoryProducts 함수 실행
