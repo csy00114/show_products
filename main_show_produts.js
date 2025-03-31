@@ -1,29 +1,28 @@
-// main.js
+// main.js - 모든 카테고리 상품을 한 페이지에 로드
 
-// 카테고리 목록에 "쿠팡 PL 상품" 옵션 추가
+// 표시할 카테고리 목록 정의
 const CATEGORIES = {
-    goldbox: "쿠팡 골드박스",
-    coupangPL: "쿠팡 PL 상품", // *** 쿠팡 PL 옵션 추가 ***
-    1001: "여성패션",
-    1002: "남성패션",
-    1010: "뷰티",
-    1011: "출산/유아동",
-    1012: "식품",
-    1013: "주방용품",
-    1014: "생활용품",
-    1015: "홈인테리어",
-    1016: "가전디지털",
-    1017: "스포츠/레저",
-    1018: "자동차용품",
-    1019: "도서/음반/DVD",
-    1020: "완구/취미",
-    1021: "문구/오피스",
-    1024: "헬스/건강식품",
-    1025: "국내여행",
-    1026: "해외여행",
-    1029: "반려동물용품",
-    1030: "유아동패션",
-
+    "goldbox": "쿠팡 골드박스",
+    "coupangPL": "쿠팡 PL 상품",
+    "1001": "여성패션",
+    "1002": "남성패션",
+    "1010": "뷰티",
+    "1011": "출산/유아동",
+    "1012": "식품",
+    "1013": "주방용품",
+    "1014": "생활용품",
+    "1015": "홈인테리어",
+    "1016": "가전디지털",
+    "1017": "스포츠/레저",
+    "1018": "자동차용품",
+    "1019": "도서/음반/DVD",
+    "1020": "완구/취미",
+    "1021": "문구/오피스",
+    "1024": "헬스/건강식품",
+    "1025": "국내여행",
+    "1026": "해외여행",
+    "1029": "반려동물용품",
+    "1030": "유아동패션",
 };
 
 /**
@@ -32,136 +31,132 @@ const CATEGORIES = {
  * @returns {string} 상품 HTML 문자열
  */
 function createProductHTML(product) {
-    console.log("createProductHTML - product:", product); // 디버깅 로그
-    if (!product || !product.productUrl || !product.productImage || !product.productName) {
-        console.error("createProductHTML - product 객체에 필요한 속성이 없습니다:", product);
-        return '<div class="product">상품 정보 오류</div>';
+    console.log("createProductHTML - product:", product); // 디버깅 로그 (필요 없으면 제거)
+    // 필요한 속성 확인 강화
+    if (!product || typeof product !== 'object' || !product.productUrl || !product.productImage || !product.productName) {
+        console.error("createProductHTML - product 객체 또는 필수 속성이 유효하지 않습니다:", product);
+        return '<div class="product" style="color: red; border: 1px dashed red; padding: 5px;">상품 정보 형식 오류</div>'; // 눈에 띄는 오류 표시
     }
+    // 가격 포맷팅 및 가격 정보 없음 처리
+    const priceString = product.productPrice ? product.productPrice.toLocaleString() + '원' : '가격 정보 없음';
+
+    // target="_blank" 제거 (요청 사항 8)
     return `
     <div class="product">
-        <a href="${product.productUrl}" target="_blank">
-            <img src="${product.productImage}" alt="${product.productName}" style="width: 200px; height: auto;">
+        <a href="${product.productUrl}">
+            <img src="${product.productImage}" alt="${product.productName}" style="width: 150px; height: auto; vertical-align: middle; margin-right: 10px;">
         </a>
-        <h3><a href="${product.productUrl}" target="_blank">${product.productName}</a></h3>
-        <p>가격: ${product.productPrice ? product.productPrice.toLocaleString() + '원' : '가격 정보 없음'}</p> </div>
+        <div style="display: inline-block; vertical-align: middle; max-width: calc(100% - 170px);">
+            <h3><a href="${product.productUrl}">${product.productName}</a></h3>
+            <p>가격: ${priceString}</p>
+        </div>
+    </div>
     `;
 }
 
 /**
- * 카테고리(종류) 선택 드롭다운 HTML을 생성하는 함수
- * @param {object} categories 카테고리 목록 객체
- * @returns {string} 드롭다운 HTML 문자열
+ * 모든 카테고리의 상품을 순차적으로 로드하고 표시하는 메인 함수
  */
-function createCategorySelectionHTML(categories) {
-    let html = `
-    <label for="category">종류 선택:</label>
-    <select id="category" onchange="loadSelectedProducts()">
-        <option value="">선택하세요</option>
-    `;
-    for (const categoryId in categories) {
-        html += `<option value="${categoryId}">${categories[categoryId]}</option>`;
+async function loadAllCategoryProducts() {
+    const mainContainer = document.getElementById('app'); // 전체 내용을 담을 컨테이너
+    if (!mainContainer) {
+        console.error("ID가 'app'인 요소를 찾을 수 없습니다.");
+        return;
     }
-    html += `
-    </select>
-    <div id="products-container"></div>
-    `;
-    return html;
-}
+    // 초기 메시지 및 상품 목록 영역 설정
+    mainContainer.innerHTML = `<h1>쿠팡 파트너스 추천 상품</h1>
+                             <p id="loading-message">전체 카테고리 상품을 불러오는 중...</p>
+                             <div id="all-products-container"></div>`;
+    const productsContainer = document.getElementById('all-products-container');
 
-/**
- * 선택된 종류에 따라 Netlify Function을 호출하여 상품 목록을 로드하고 표시하는 함수
- */
-async function loadSelectedProducts() {
-    const selectedValue = document.getElementById("category").value;
-    console.log("loadSelectedProducts - selectedValue:", selectedValue);
-
-    const productsContainer = document.getElementById("products-container");
-    productsContainer.innerHTML = ""; // 이전 상품 목록 지우기
-
-    if (selectedValue) {
+    // CATEGORIES 객체를 순회하며 각 카테고리/타입 처리
+    for (const key in CATEGORIES) {
+        const categoryName = CATEGORIES[key];
         let fetchUrl = "";
-        let title = ""; // 제목 설정용 변수
+        let title = "";
 
-        // 선택된 값에 따라 URL 및 제목 구성
-        if (selectedValue === "coupangPL") {
+        console.log(`[${categoryName}] 상품 로드 시작...`);
+
+        // URL 및 제목 설정
+        if (key === "coupangPL") {
             fetchUrl = `/.netlify/functions/coupang_api?type=coupangPL`;
             title = "쿠팡 PL 상품";
-        } else if (selectedValue === "goldbox") {
+        } else if (key === "goldbox") {
             fetchUrl = `/.netlify/functions/coupang_api?type=goldbox`;
             title = "쿠팡 골드박스";
-        } else {
-            fetchUrl = `/.netlify/functions/coupang_api?category_id=${selectedValue}`;
-            title = "베스트 상품";
+        } else { // 숫자 ID는 베스트 카테고리로 간주
+            fetchUrl = `/.netlify/functions/coupang_api?category_id=${key}`;
+            title = `${categoryName} 베스트 상품`;
         }
-        console.log("loadSelectedProducts - fetchUrl:", fetchUrl);
+        console.log(` - Fetching URL: ${fetchUrl}`);
 
-        // 로딩 메시지 표시
-        productsContainer.innerHTML = `<h2>${title}</h2><p>상품 목록을 불러오는 중...</p>`;
+        let categorySectionHtml = `<section class="category-section" id="category-${key}"><h2>${title}</h2>`; // 각 카테고리 섹션 시작
 
         try {
             const response = await fetch(fetchUrl);
-            console.log("loadSelectedProducts - fetch response:", response);
+            console.log(` - [${categoryName}] 응답 상태:`, response.status, response.ok);
 
             if (!response.ok) {
-                const errorText = await response.text();
-                let errorMessage = errorText;
+                let errorMsg = `API 호출 실패 (${response.status})`;
                 try {
-                    const errorData = JSON.parse(errorText);
-                    errorMessage = errorData.error || errorText;
-                } catch (parseError) { /* Ignore */ }
-                throw new Error(`Netlify Function 호출 실패: ${response.status} - ${errorMessage}`);
-            }
+                    const errorData = await response.json();
+                    errorMsg = errorData.error || JSON.stringify(errorData);
+                } catch (e) { errorMsg = await response.text(); }
+                console.error(` - [${categoryName}] 오류: ${errorMsg}`);
+                categorySectionHtml += `<p>상품 정보를 가져오는 데 실패했습니다 (${response.status}).</p>`;
+            } else {
+                const products = await response.json();
+                console.log(` - [${categoryName}] 상품 데이터:`, products);
 
-            const products = await response.json();
-            console.log("loadSelectedProducts - products:", products); // 받은 products 데이터 확인
-
-            let html = `<h2>${title}</h2>`;
-
-            // products 배열 확인 및 처리
-            if (products && Array.isArray(products)) {
-                if (products.length > 0) {
-                    for (const product of products) {
-                        html += createProductHTML(product);
+                if (products && Array.isArray(products)) {
+                    if (products.length > 0) {
+                        categorySectionHtml += `<ul style="list-style-type: none; padding-left: 0;">`; // 목록 시작 (스타일 추가)
+                        for (const product of products) {
+                            categorySectionHtml += `<li style="margin-bottom: 15px;">${createProductHTML(product)}</li>`; // 각 상품을 li로 감쌈
+                        }
+                        categorySectionHtml += `</ul>`; // 목록 끝
+                    } else {
+                        categorySectionHtml += `<p>추천 상품이 없습니다.</p>`; // 상품 없음 메시지
                     }
                 } else {
-                    // 상품 없을 때 메시지 구분
-                    if (selectedValue === "coupangPL") {
-                         html += "<p>쿠팡 PL 상품이 없습니다.</p>";
-                    } else if (selectedValue === "goldbox") {
-                        html += "<p>쿠팡 골드박스 상품이 없습니다.</p>";
-                    } else {
-                         html += "<p>해당 카테고리에 상품이 없습니다.</p>";
-                    }
+                    console.error(` - [${categoryName}] 상품 데이터 형식 오류:`, products);
+                    categorySectionHtml += "<p>상품 목록 형식 오류.</p>";
                 }
-            } else {
-                console.error("loadSelectedProducts - products가 배열이 아니거나 null/undefined입니다:", products);
-                html += "<p>상품 목록을 가져오는 중 오류가 발생했습니다.</p>";
             }
-
-            productsContainer.innerHTML = html; // 최종 HTML 표시
-
         } catch (error) {
-            console.error("loadSelectedProducts - error:", error);
-            productsContainer.innerHTML = `<p>상품 정보를 가져오는 데 실패했습니다. 오류: ${error.message}</p>`;
+            console.error(` - [${categoryName}] 네트워크 또는 기타 오류:`, error);
+            categorySectionHtml += `<p>상품 정보를 가져오는 중 오류 발생: ${error.message}</p>`;
         }
+
+        categorySectionHtml += `</section><hr>`; // 카테고리 섹션 끝 및 구분선
+        productsContainer.insertAdjacentHTML('beforeend', categorySectionHtml); // 생성된 HTML을 순차적으로 추가
     }
+
+    // 로딩 메시지 제거
+    const loadingMessage = document.getElementById('loading-message');
+    if (loadingMessage) {
+        loadingMessage.remove();
+    }
+
+    // 'Top' 버튼 코드 추가 (요청 사항 3)
+    const scrollTopButtonHtml = `
+       <style>
+       #scrollTopBtn { display: none; position: fixed; bottom: 20px; right: 30px; z-index: 99; border: none; outline: none; background-color: rgba(0, 0, 0, 0.5); color: white; cursor: pointer; padding: 10px 15px; border-radius: 50%; font-size: 18px; line-height: 1; }
+       #scrollTopBtn:hover { background-color: rgba(0, 0, 0, 0.8); }
+       </style>
+       <button onclick="scrollToTop()" id="scrollTopBtn" title="맨 위로">▲</button>
+       <script>
+       var myBtn = document.getElementById("scrollTopBtn"); window.onscroll = function() {scrollFunc()}; function scrollFunc() { if (document.body.scrollTop > 100 || document.documentElement.scrollTop > 100) { myBtn.style.display = "block"; } else { myBtn.style.display = "none"; } } function scrollToTop() { document.body.scrollTop = 0; document.documentElement.scrollTop = 0; }
+       // 스크립트 중복 실행 방지를 위해 전역 객체에 플래그 설정 (간단한 방법)
+       if (typeof window.scrollTopScriptLoaded === 'undefined') {
+           window.scrollTopScriptLoaded = true;
+           // 스크립트 내용을 여기에 넣거나, 외부 파일로 분리 권장
+           // 위의 script 내용은 이미 전역 범위에 정의되므로 여기서는 함수 호출만
+       }
+       </script>
+       `;
+    mainContainer.insertAdjacentHTML('beforeend', scrollTopButtonHtml);
 }
 
-/**
- * 초기화 함수: 페이지 로드 시 카테고리 선택 메뉴를 생성합니다.
- */
-function init() {
-    const categorySelectionHtml = createCategorySelectionHTML(CATEGORIES);
-    const app = document.getElementById('app');
-    if (app) { // app 요소가 있는지 확인
-        app.innerHTML = `
-            <h1>쿠팡 파트너스 상품</h1>
-            ${categorySelectionHtml}
-        `;
-    } else {
-        console.error("ID가 'app'인 요소를 찾을 수 없습니다.");
-    }
-}
-
-// 페이지의 HTML 콘텐츠가 완전히 로드되고 파싱되었을 때 init 함수를 실행합니다.
-document.addEventListener('DOMContentLoaded', init);
+// 페이지 로드 완료 시 loadAllCategoryProducts 함수 실행
+document.addEventListener('DOMContentLoaded', loadAllCategoryProducts);

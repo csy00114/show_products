@@ -1,4 +1,4 @@
-// netlify/functions/coupang_api.js
+// netlify/functions/show_produts_api.js
 // 쿠팡 파트너스 API 요청 처리 (베스트 카테고리, 쿠팡 PL, 골드박스)
 
 const crypto = require('crypto');
@@ -50,7 +50,7 @@ function generateAuthorization(method, path, query, secretKey, accessKey) {
  * @param {number} limit 가져올 상품 수 (기본값 20)
  * @returns {Promise<Array>} 상품 목록 배열 또는 빈 배열
  */
-async function getGoldboxProducts(limit = 20) {
+async function getGoldboxProducts(limit = 100 {
     const path = `/${API_VERSION}/providers/${PROVIDER}/apis/openapi/${OPEN_API_VERSION}/products/goldbox`; // 골드박스 엔드포인트
 
     let queryParams = [];
@@ -105,7 +105,7 @@ async function getGoldboxProducts(limit = 20) {
  * @param {string|null} imageSize 이미지 크기 (예: "512x512")
  * @returns {Promise<Array>} 상품 목록 배열 또는 빈 배열
  */
-async function getCoupangPLProducts(limit = 20, imageSize = null) {
+async function getCoupangPLProducts(limit = 20 imageSize = null) {
     const path = `/${API_VERSION}/providers/${PROVIDER}/apis/openapi/${OPEN_API_VERSION}/products/coupangPL`; // 쿠팡 PL 엔드포인트
     let queryParams = [];
     if (limit) queryParams.push(`limit=${limit}`);
