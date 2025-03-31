@@ -79,13 +79,13 @@ async function loadAllCategoryProducts() {
 
         // URL 및 제목 설정
         if (key === "coupangPL") {
-            fetchUrl = `/.netlify/functions/coupang_api?type=coupangPL`;
+            fetchUrl = `/.netlify/functions/show_produts_api?type=coupangPL`;
             title = "쿠팡 PL 상품";
         } else if (key === "goldbox") {
-            fetchUrl = `/.netlify/functions/coupang_api?type=goldbox`;
+            fetchUrl = `/.netlify/functions/show_produts_api?type=goldbox`;
             title = "쿠팡 골드박스";
         } else { // 숫자 ID는 베스트 카테고리로 간주
-            fetchUrl = `/.netlify/functions/coupang_api?category_id=${key}`;
+            fetchUrl = `/.netlify/functions/show_produts_api?category_id=${key}`;
             title = `${categoryName} 베스트 상품`;
         }
         console.log(` - Fetching URL: ${fetchUrl}`);
